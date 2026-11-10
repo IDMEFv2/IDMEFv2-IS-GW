@@ -23,7 +23,7 @@ services:
       - ssl-store-sd:/ssl-store
 
   gateway-sender:
-    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.2
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.3
     container_name: s4s.gateway-sender
     build:
       context: ./gateway
@@ -70,9 +70,8 @@ services:
           "authentication_requirements": [],
           "connection_requirements": [],
           "filterConfig": {
-            "CreateTime": "",
-            "StartTime": "",
             "Cause": "",
+            "Description" : "",
             "OrganisationName": ${GATEWAY_ORGANISATION:-S4S}
           },
           "enrichmentConfig": {
