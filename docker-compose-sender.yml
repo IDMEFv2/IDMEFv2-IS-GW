@@ -1,14 +1,87 @@
-services:
+name: sender
 
-  is-gateway-sd:
-    image: s4s/is-gateway:v2
-    container_name: s4s.is-gateway-sd
-    build: 
-      context: ./docker
+services:
+  enrollment:
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway-enrollment:1.0.2
+    build:
+      context: ./enrollment
       dockerfile: Dockerfile
-    restart: "on-failure"
-    ports:
-       - 10081:10081
+    restart: "no"
+    environment:
+      PKI_DOMAIN: "${PKI_DOMAIN:-pki.safe4soc.cosypoc.fr}"
+      TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
+      KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+
+      ENROL_TOKEN: "${ENROL_TOKEN:-changeme}" # used for API secure token (S4S Enroll wrapper, planned for next release)
+
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-sender}" # Gateway Name
+      GATEWAY_ORGANISATION: "${GATEWAY_ORGANISATION:-S4S}" # Organization
+
+      REPEATS: 10 #number of automatic reconnects to get signed certificate
+      SECONDS: 10 #number of waiting seconds per cycle
     volumes:
-      - ./is-gateway/config/sender.properties:/application.properties
-    
+      - ssl-store-sd:/ssl-store
+
+  gateway-sender:
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.3
+    container_name: s4s.gateway-sender
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    hostname: gateway-sender
+    ports:
+      - 10080:10081
+    volumes:
+      - ssl-store-sd:/store
+    depends_on:
+      enrollment:
+        condition: service_completed_successfully
+    environment:
+      GATEWAY_ROLE: SENDER
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-sender}" # Gateway Name
+
+      SSL_KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+      SSL_TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
+
+      SSL_INBOUND_ACTIVATED: false
+      SSL_OUTBOUND_ACTIVATED: true
+
+      GATEWAY_RECEIVER_URL: "${GATEWAY_RECEIVER_URL:-https://gateway-receiver:10081}"
+
+      ISACONFIG: >-
+        {
+          "provider_reason": "compliance",
+          "intended_use": "alert_gathering",
+          "data_usage_policies": {
+            "use_until": "2024-12-12",
+            "use_after": "2024-09-12",
+            "share_further": false
+          },
+          "data_sender_SIEM_brand": "Example Company A",
+          "data_sender_SIEM_version": "Version 0.1",
+          "IDMEFv2_attributes": {
+            "attributes_to_transmit": [],
+            "attributes_to_neglect": [],
+            "attributes_to_anonymize": [],
+            "attributes_to_pseudonemize": []
+          },
+          "sending_mode": "",
+          "encryption_requirements": [],
+          "authentication_requirements": [],
+          "connection_requirements": [],
+          "filterConfig": {
+            "Cause": "",
+            "Description" : "",
+            "OrganisationName": ${GATEWAY_ORGANISATION:-S4S}
+          },
+          "enrichmentConfig": {
+            "CreateTime": "",
+            "StartTime": ""
+          }
+        }
+
+    extra_hosts:
+      - "gateway-receiver:host-gateway"
+
+volumes:
+  ssl-store-sd:

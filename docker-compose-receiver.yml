@@ -1,11 +1,12 @@
-services:
+name: receiver
 
+services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
     container_name: s4s.zookeeper
     hostname: zookeeper
-    ports:
-      - "127.0.0.1:2181:2181"
+    # ports:
+    #   - "127.0.0.1:2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_SERVER_ID: 1
@@ -16,10 +17,10 @@ services:
     image: confluentinc/cp-kafka:7.3.2
     container_name: s4s.kafka
     hostname: kafka
-    ports:
-      - "127.0.0.1:9092:9092"
-      - "127.0.0.1:29092:29092"
-      - "127.0.0.1:9999:9999"
+    # ports:
+    #   - "127.0.0.1:9092:9092"
+    #   - "127.0.0.1:29092:29092"
+    #   - "127.0.0.1:9999:9999"
     restart: on-failure
     volumes:
       - ./logs:/var/lib/kafka/logs:Z
@@ -39,20 +40,23 @@ services:
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: false
     healthcheck:
-      test: [ "CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1" ]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     depends_on:
       - zookeeper
 
-  # Kafka GUI like kafdrop but more user freindly 
   kowl:
     image: quay.io/cloudhut/kowl:master
     container_name: s4s.kowl
     restart: unless-stopped
     ports:
-      - 8083:8080
+      - 0:8080
     environment:
       KAFKA_BROKERS: "kafka:29092"
     depends_on:
@@ -63,24 +67,74 @@ services:
     container_name: s4s.rest-proxy
     depends_on:
       - kafka
-    ports:
-      - 127.0.0.1:8082:8082
+    # ports:
+    #   - 127.0.0.1:8082:8082
     hostname: rest-proxy
     environment:
       KAFKA_REST_HOST_NAME: rest-proxy
-      KAFKA_REST_BOOTSTRAP_SERVERS: 'kafka:29092'
+      KAFKA_REST_BOOTSTRAP_SERVERS: "kafka:29092"
       KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
-    
-  is-gateway-rc:
-    image: s4s/is-gateway:v2
-    container_name: s4s.is-gateway-rc
-    build: 
-      context: ./is-gateway/docker
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -fsS http://localhost:8082/ || exit 1"
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  enrollment:
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway-enrollment:1.0.2
+    build:
+      context: ./enrollment
       dockerfile: Dockerfile
-    restart: "on-failure"
-    ports:
-       - 10081:10081
+    restart: "no"
+    environment:
+      PKI_DOMAIN: "${PKI_DOMAIN:-pki.safe4soc.cosypoc.fr}"
+      TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
+      KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+
+      ENROL_TOKEN: "${ENROL_TOKEN:-changeme}" # used for API secure token (S4S Enroll wrapper)
+
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-receiver}" # Gateway Name
+      GATEWAY_ORGANIZATION: "${GATEWAY_ORGANIZATION:-S4S}" # Organization
+
+      REPEATS: 10 #number of automatic reconnects to get signed certificate
+      SECONDS: 10 #number of waiting seconds per cycle
     volumes:
-      - ./is-gateway/config/receiver.properties:/application.properties
+      - ssl-store-rc:/ssl-store
+
+  gateway-receiver:
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.2
+    container_name: s4s.gateway-receiver
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    hostname: gateway-receiver
+    #restart: "on-failure"
+    ports:
+      - 10081:10081
+    volumes:
+      - ssl-store-rc:/store
     depends_on:
-      - rest-proxy
+      rest-proxy:
+        condition: service_healthy
+      enrollment:
+        condition: service_completed_successfully
+    environment:
+      GATEWAY_ROLE: RECEIVER
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-receiver}" # Gateway Name
+
+      SSL_KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+      SSL_TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
+
+      SSL_MTLS_SETTING: need
+      SSL_INBOUND_ACTIVATED: true
+      SSL_OUTBOUND_ACTIVATED: false
+
+      KAFKA_LOCAL_DOMAIN: rest-proxy
+      KAFKA_LOCAL_PORT: 8082
+      KAFKA_TOPIC: "${KAFKA_TOPIC:-my_processed}"
+
+volumes:
+  ssl-store-rc:
