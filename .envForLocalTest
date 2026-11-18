@@ -1,0 +1,7 @@
+PKI_DOMAIN=pki.safe4soc.cosypoc.fr
+GATEWAY_DOMAIN_FOR_SENDER=gateway-sender
+GATEWAY_DOMAIN_FOR_RECEIVER=gateway-receiver
+GATEWAY_ORGANISATION=Fraunhofer
+KEY_STORE_PASSWORD=password #change it if you want
+TRUST_STORE_PASSWORD=password #change it if you want
+GATEWAY_RECEIVER_URL=https://gateway-receiver:10081

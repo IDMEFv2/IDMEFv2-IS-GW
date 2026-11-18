@@ -14,14 +14,13 @@ services:
 
       ENROL_TOKEN: "${ENROL_TOKEN:-changeme}" # used for API secure token (S4S Enroll wrapper, planned for next release)
 
-      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-sender}" # Gateway Name
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN_FOR_SENDER:-gateway-sender}" # Gateway Name
       GATEWAY_ORGANISATION: "${GATEWAY_ORGANISATION:-S4S}" # Organization
 
       REPEATS: 10 #number of automatic reconnects to get signed certificate
       SECONDS: 10 #number of waiting seconds per cycle
     volumes:
       - ssl-store-sd:/ssl-store
-
   gateway-sender:
     image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.3
     container_name: s4s.gateway-sender
@@ -30,55 +29,47 @@ services:
       dockerfile: Dockerfile
     hostname: gateway-sender
     ports:
-      - 10080:10081
+      - "10080:10080"
     volumes:
       - ssl-store-sd:/store
+      - ${PWD}/idmefv2-schema.json:/idmefv2-schema.json
+      - ${PWD}/isa.json:/isa.json
     depends_on:
       enrollment:
         condition: service_completed_successfully
     environment:
-      GATEWAY_ROLE: SENDER
-      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-sender}" # Gateway Name
-
-      SSL_KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
-      SSL_TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
-
-      SSL_INBOUND_ACTIVATED: false
-      SSL_OUTBOUND_ACTIVATED: true
-
+      IDMEFv2SchemaPath: /idmefv2-schema.json
+      ISA_PATH: /isa.json
       GATEWAY_RECEIVER_URL: "${GATEWAY_RECEIVER_URL:-https://gateway-receiver:10081}"
 
-      ISACONFIG: >-
-        {
-          "provider_reason": "compliance",
-          "intended_use": "alert_gathering",
-          "data_usage_policies": {
-            "use_until": "2024-12-12",
-            "use_after": "2024-09-12",
-            "share_further": false
-          },
-          "data_sender_SIEM_brand": "Example Company A",
-          "data_sender_SIEM_version": "Version 0.1",
-          "IDMEFv2_attributes": {
-            "attributes_to_transmit": [],
-            "attributes_to_neglect": [],
-            "attributes_to_anonymize": [],
-            "attributes_to_pseudonemize": []
-          },
-          "sending_mode": "",
-          "encryption_requirements": [],
-          "authentication_requirements": [],
-          "connection_requirements": [],
-          "filterConfig": {
-            "Cause": "",
-            "Description" : "",
-            "OrganisationName": ${GATEWAY_ORGANISATION:-S4S}
-          },
-          "enrichmentConfig": {
-            "CreateTime": "",
-            "StartTime": ""
-          }
-        }
+      ENDPOINT_ACTIVE_RELOADCONFIG: true
+      ENDPOINT_ACTIVE_SETISA: true
+      GATEWAY_RECEIVER_USERNAME: ""
+      GATEWAY_RECEIVER_PASSWORD: ""
+
+      SSL_KEY_STORE: /store/keystore.p12
+      SSL_KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+      SSL_KEY_ALIAS: 1
+ 
+      SSL_TRUST_STORE: /store/truststore.p12
+      SSL_TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
+
+      GATEWAY_PROTOCOL: https     # for communication from gateway sender to gateway receiver
+      SSL_INBOUND_ACTIVATED: false
+      SSL_OUTBOUND_ACTIVATED: true
+      SSL_MTLS_SETTING: want      # mTLS optional  none|want|need
+
+      GATEWAY_ROLE: SENDER
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN_FOR_SENDER:-gateway-sender}" # Gateway Name
+      KAFKA_LOCAL_DOMAIN: xxxxx   #not used in this role
+      KAFKA_LOCAL_PORT: xxxx      #not used in this role
+      KAFKA_TOPIC: my_processed
+      GATEWAY_RECEIVER_DOMAIN: gateway-receiver
+      GATEWAY_RECEIVER_PORT: 10081
+      GATEWAY_SENDER_DOMAIN: gateway-sender
+      GATEWAY_SENDER_PORT: 10080
+
+      GATEWAY_PORT: 10080
 
     extra_hosts:
       - "gateway-receiver:host-gateway"

@@ -96,7 +96,7 @@ services:
 
       ENROL_TOKEN: "${ENROL_TOKEN:-changeme}" # used for API secure token (S4S Enroll wrapper)
 
-      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-receiver}" # Gateway Name
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN_FOR_RECEIVER:-gateway-receiver}" # Gateway Name
       GATEWAY_ORGANIZATION: "${GATEWAY_ORGANIZATION:-S4S}" # Organization
 
       REPEATS: 10 #number of automatic reconnects to get signed certificate
@@ -105,7 +105,7 @@ services:
       - ssl-store-rc:/ssl-store
 
   gateway-receiver:
-    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.2
+    image: harbor.safe4soc.cosypoc.fr/s4s/gateway:1.0.3
     container_name: s4s.gateway-receiver
     build:
       context: ./gateway
@@ -113,21 +113,37 @@ services:
     hostname: gateway-receiver
     #restart: "on-failure"
     ports:
-      - 10081:10081
+      - "10081:10081"
     volumes:
       - ssl-store-rc:/store
+      - ${PWD}/idmefv2-schema.json:/idmefv2-schema.json
+      - ${PWD}/isa.json:/isa.json
     depends_on:
       rest-proxy:
         condition: service_healthy
       enrollment:
         condition: service_completed_successfully
     environment:
-      GATEWAY_ROLE: RECEIVER
-      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN:-gateway-receiver}" # Gateway Name
+      IDMEFv2SchemaPath: /idmefv2-schema.json
+      ISA_PATH: /isa.json
+      GATEWAY_RECEIVER_URL:               # empty for receiver, but must be set to empty variable
 
+      ENDPOINT_ACTIVE_RELOADCONFIG: true
+      ENDPOINT_ACTIVE_SETISA: true
+      GATEWAY_RECEIVER_USERNAME: ""       # empty for receiver, but must be set to empty variable
+      GATEWAY_RECEIVER_PASSWORD: ""       # empty for receiver, but must be set to empty variable
+
+      GATEWAY_ROLE: RECEIVER
+      GATEWAY_DOMAIN: "${GATEWAY_DOMAIN_FOR_RECEIVER:-gateway-receiver}" # Gateway Name
+
+      SSL_KEY_STORE: /store/keystore.p12
       SSL_KEY_STORE_PASSWORD: "${KEY_STORE_PASSWORD:-password}"
+      SSL_KEY_ALIAS: 1
+
+      SSL_TRUST_STORE: /store/truststore.p12
       SSL_TRUST_STORE_PASSWORD: "${TRUST_STORE_PASSWORD:-password}"
 
+      GATEWAY_PROTOCOL: http     # for communication from gateway sender to gateway receiver
       SSL_MTLS_SETTING: need
       SSL_INBOUND_ACTIVATED: true
       SSL_OUTBOUND_ACTIVATED: false
@@ -136,5 +152,11 @@ services:
       KAFKA_LOCAL_PORT: 8082
       KAFKA_TOPIC: "${KAFKA_TOPIC:-my_processed}"
 
+      GATEWAY_RECEIVER_DOMAIN: gateway-receiver
+      GATEWAY_RECEIVER_PORT: 10081
+      GATEWAY_SENDER_DOMAIN: gateway-sender
+      GATEWAY_SENDER_PORT: 10080
+
+      GATEWAY_PORT: 10081
 volumes:
   ssl-store-rc:

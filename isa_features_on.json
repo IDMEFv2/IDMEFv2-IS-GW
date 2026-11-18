@@ -1,0 +1,50 @@
+{
+  "provider_reason": "compliance",
+  "intended_use": "alert_gathering",
+  "data_usage_policies": {
+    "use_until": "2024-12-12",
+    "use_after": "2024-09-12",
+    "share_further": "false"
+  },
+  "data_sender_SIEM_brand": "Example Company A",
+  "data_sender_SIEM_version": "Version 0.1",
+  "IDMEFv2_attributes": {
+    "attributes_to_transmit": [],
+    "attributes_to_neglect": [],
+    "attributes_to_anonymize": [],
+    "attributes_to_pseudonemize": []
+  },
+  "sending_mode": "",
+  "encryption_requirements": [],
+  "authentication_requirements": [],
+  "connection_requirements": [],
+  "filterConfig": {
+    "CreateTime": "",
+    "StartTime": ""
+  },
+  "dropConfig": {
+    "Version": "",
+    "ID": "",
+    "Status": "",
+    "OrganisationName": "",
+    "CreateTime": "",
+    "StartTime": "",
+    "Cause": "",
+    "Category": "",
+    "Priority": "Medium",
+    "Confidence": "",
+    "Description": ""
+  },
+  "enrichmentConfig": {
+    "CreateTime": "",
+    "StartTime": ""
+  },
+  "requiredConfig": {
+    "Version": "",
+    "ID": "",
+    "StartTime": "",
+    "Status": "",
+    "Source": "",
+    "Target": ""
+  }
+}
